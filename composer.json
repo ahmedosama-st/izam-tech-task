@@ -6,8 +6,14 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "http-interop/http-factory-guzzle": "^1.2",
         "laravel/framework": "^11.9",
-        "laravel/tinker": "^2.9"
+        "laravel/sanctum": "^4.0",
+        "laravel/scout": "^10.11",
+        "laravel/tinker": "^2.9",
+        "meilisearch/meilisearch-php": "^1.10",
+        "moneyphp/money": "^4.5",
+        "spatie/laravel-query-builder": "^6.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
