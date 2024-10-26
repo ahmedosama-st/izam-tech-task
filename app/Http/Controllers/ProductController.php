@@ -2,62 +2,76 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProductSearchRequest;
+use App\Http\Requests\ProductIndexRequest;
 use App\Http\Requests\ProductStoreRequest;
 use App\Http\Resources\ProductResource;
+use App\Jobs\SyncProducts;
 use App\Models\Product;
 use Cache;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use JsonException;
-use Spatie\QueryBuilder\AllowedFilter;
-use Spatie\QueryBuilder\QueryBuilder;
+use Illuminate\Support\Arr;
 
 class ProductController extends Controller
 {
-    /**
-     * @throws JsonException
-     */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(ProductIndexRequest $request): AnonymousResourceCollection
     {
-        $query = QueryBuilder::for(Product::class)
-            ->with(['category'])
-            ->allowedFilters([
-                AllowedFilter::scope('price_range'),
-                AllowedFilter::scope('category'),
-            ])
-            ->allowedSorts(['price', 'created_at'])
-            ->paginate(50);
+        $products = Product::search($request->input('name'), function ($meilisearch, $query, $options) use ($request) {
+            $options['filter'] = $this->buildFilterOptions($request);
+            $options['limit'] = $this->getPaginationLimit($request);
+            $options['sort'] = ['created_at:desc'];
+
+            return $meilisearch->search($query, $options);
+        })->paginate($this->getPaginationLimit($request));
+
         $key = $this->getCacheKey($request, 'products.index');
 
-        return Cache::remember($key, now()->addMinutes(10), static fn () => ProductResource::collection($query));
+        return Cache::remember($key, now()->addMinutes(10), fn () => ProductResource::collection($products));
     }
 
-    /**
-     * @throws JsonException
-     */
+    protected function buildFilterOptions(ProductIndexRequest $request): string
+    {
+        $category = $request->get('filter')['category'] ?? null;
+        $price = $request->get('filter')['price'] ?? null;
+        $filters = [];
+
+        if ($category) {
+            $filters[] = 'category='.$category;
+        }
+
+        if ($price) {
+            $price = explode(',', trim($price, '[]'));
+            $filters[] = "price >= {$price[0]} AND price <= {$price[1]}";
+        }
+
+        $filters[] = 'stock > 0';
+
+        return implode(' AND ', $filters);
+    }
+
     protected function getCacheKey(Request $request, string $prefix): string
     {
-        return $prefix.'.'.md5(json_encode($request->query(), JSON_THROW_ON_ERROR));
+        $query = $request->query();
+
+        ksort($query);
+
+        return $prefix.'.'.implode('_', Arr::flatten($query));
     }
 
-    public function store(ProductStoreRequest $request): JsonResponse
+    public function store(ProductStoreRequest $request): ProductResource
     {
         $product = Product::create($request->validated());
 
-        return response()->json($product, 201);
+        SyncProducts::dispatch();
+
+        return ProductResource::make($product);
     }
 
     /**
-     * @throws JsonException
+     * @return int|mixed
      */
-    public function search(ProductSearchRequest $request): AnonymousResourceCollection
+    protected function getPaginationLimit(ProductIndexRequest $request): mixed
     {
-        $name = $request->input('name');
-        $products = Product::search($name)->paginate(10);
-        $key = $this->getCacheKey($request, 'products.search');
-
-        return Cache::remember($key, now()->addMinutes(10), static fn () => ProductResource::collection($products));
+        return $request->get('limit') ?? 10;
     }
 }

@@ -6,6 +6,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-intl": "*",
+        "dedoc/scramble": "^0.11.23",
         "http-interop/http-factory-guzzle": "^1.2",
         "laravel/framework": "^11.9",
         "laravel/sanctum": "^4.0",
@@ -16,6 +18,8 @@
         "spatie/laravel-query-builder": "^6.2"
     },
     "require-dev": {
+        "roave/security-advisories": "dev-latest"
+        ,
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.1",
         "laravel/pint": "^1.13",

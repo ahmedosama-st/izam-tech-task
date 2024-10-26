@@ -136,8 +136,10 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_MASTER_KEY'),
         'index-settings' => [
-            'products' => [
-                'filterableAttributes' => ['name'],
+            Product::class => [
+                'filterableAttributes' => ['stock', 'price', 'category'],
+                'searchableAttributes' => ['name'],
+                'sortableAttributes' => ['price', 'created_at'],
             ],
         ],
     ],

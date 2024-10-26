@@ -12,9 +12,9 @@ class Money implements CastsAttributes
      *
      * @param  array<string, mixed>  $attributes
      */
-    public function get(Model $model, string $key, mixed $value, array $attributes): mixed
+    public function get(Model $model, string $key, mixed $value, array $attributes): \Money\Money
     {
-        return \Money\Money::EGP($value)->divide(100);
+        return \Money\Money::EGP($value);
     }
 
     /**

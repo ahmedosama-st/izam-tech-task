@@ -14,6 +14,8 @@ class Product extends Model
     /** @use HasFactory<ProductFactory> */
     use HasFactory, Searchable;
 
+    public const PRODUCT_STOCK_PERCENTAGE_THRESHOLD = 0.2;
+
     protected $fillable = [
         'name',
         'description',
@@ -24,7 +26,14 @@ class Product extends Model
 
     public function toSearchableArray(): array
     {
-        return $this->only('name');
+        return [
+            'name' => $this->name,
+            'description' => $this->description,
+            'price' => (int) $this->price->getAmount(),
+            'stock' => $this->stock,
+            'created_at' => $this->created_at,
+            'category' => $this->category->name,
+        ];
     }
 
     /**
@@ -33,16 +42,6 @@ class Product extends Model
     public function stockActivities(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ProductStockActivity::class);
-    }
-
-    /**
-     * Get the stock activities for the product that need restocking.
-     */
-    public function scopeNeedsRestock(\Illuminate\Database\Eloquent\Builder $query
-    ): \Illuminate\Database\Eloquent\Builder {
-        return $query->whereHas('stockActivities', function (\Illuminate\Database\Eloquent\Builder $query) {
-            $query->where('needs_restock', true);
-        });
     }
 
     public function orders(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
@@ -72,8 +71,18 @@ class Product extends Model
         });
     }
 
-    public function scopePriceRange(Builder $builder, int $min, int $max): Builder
+    public function scopePrice(Builder $builder, int $min, int $max): Builder
     {
         return $builder->whereBetween('price', [$min, $max]);
+    }
+
+    public function canBeOrdered(int $quantity): bool
+    {
+        return ($this->stock - $quantity) >= 0;
+    }
+
+    public function isBelowThreshold(): bool
+    {
+        return $this->stock < ((int) ceil($this->stockActivities()->initial()->stock * self::PRODUCT_STOCK_PERCENTAGE_THRESHOLD));
     }
 }
